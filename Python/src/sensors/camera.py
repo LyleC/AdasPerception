@@ -1,5 +1,6 @@
 import math as m
 
+import cv2
 import numpy as np
 
 
@@ -9,102 +10,74 @@ class Camera:
         self.extrinsics = extrinsics
         self.image_size = image_size
 
-        self.fx = intrinsics["fx"]
-        self.fy = intrinsics["fy"]
-        self.u0 = intrinsics["u0"]
-        self.v0 = intrinsics["v0"]
-        self.K = self._build_intrinsic_matrix()
-        self.x = -displacement["X"]
-        self.y = -displacement["Y"]
-        self.z = -displacement["H"]
-        self.T_cw = self._build_T_cw()
-        self.roll = angles["roll"]
-        self.pitch = angles["pitch"]
-        self.yaw = angles["yaw"]
-        self.R_cw = self._reconstruct_R_cw_from_Euler_Angles()
-        RT = np.append(self.R_cw, self.T_cw, axis=1)
-        K_RT = self.K @ RT
-        self.P = np.delete(K_RT, 2, 1)  # 画没有Z方向的2D点， 用这个self.P
-        # self.P = K_RT # 如果画3D点到画面中，用这个self.P
-        self.Q = np.linalg.inv(self.P)
-
+        mat_K = self._build_intrinsic_matrix()
+        mat_RT = self._build_extrinsic_matrix()
+        self.trans_mat_uv2xy, self.trans_mat_xy2uv = self._calc_trans_matrix(
+            mat_K, mat_RT
+        )
         return
 
+    def _calc_trans_matrix(self, mat_k, mat_rt):
+        mat_h = mat_k @ mat_rt
+        mat_h = np.delete(mat_h, 2, axis=1)
+        mat_ih = np.linalg.inv(mat_h)
+        trans_matrix_xy2uv = mat_h / mat_h[2, 2]
+        trans_matrix_uv2xy = mat_ih / mat_ih[2, 2]
+        return trans_matrix_uv2xy, trans_matrix_xy2uv
+
     def _build_intrinsic_matrix(self):
-        """
-        从焦距fx,fy和画面中心点u0,v0求相机内参矩阵。
-        """
         return np.array(
             [
-                [self.intrinsics["fx"], 0, self.intrinsics["cx"]],
-                [0, self.intrinsics["fy"], self.intrinsics["cy"]],
-                [0, 0, 1],
+                [self.intrinsics["fx"], 0, self.intrinsics["cx"], 0],
+                [0, self.intrinsics["fy"], self.intrinsics["cy"], 0],
+                [0, 0, 1, 0],
             ]
         )
 
     def _build_extrinsic_matrix(self):
+        mat_r = self._build_R_matrix()
+        mat_t = self._build_T_matrix()
+        mat_rt = np.hstack((mat_r, mat_t))
+        mat_rt = np.vstack((mat_rt, np.array([0, 0, 0, 1])))
+        return mat_rt
 
-        return
-
-    def _build_T_cw(self):
-        """
-        世界O在相机O中的坐标
-        """
-        T_cw = np.array([[self.x], [self.y], [self.z]])
-        return T_cw
-
-    def _build_R_cw(self):
-        """
-        从roll,pitch,yaw来构造世界坐标系到相机坐标系的旋转矩阵R_cw
-        """
-        alpha = m.radians(self.roll)
-        beta = m.radians(self.pitch)
-        gamma = m.radians(self.yaw)
-        Rx = np.array(
-            [
-                [1, 0, 0],
-                [0, m.cos(alpha), -m.sin(alpha)],
-                [0, m.sin(alpha), m.cos(alpha)],
-            ]
+    def _build_R_matrix(self):
+        mat_r, _ = cv2.Rodrigues(
+            (
+                m.radians(self.extrinsics["roll"]),
+                m.radians(self.extrinsics["pitch"]),
+                m.radians(self.extrinsics["yaw"]),
+            )
         )
-        Ry = np.array(
-            [[m.cos(beta), 0, m.sin(beta)], [0, 1, 0], [-m.sin(beta), 0, m.cos(beta)]]
-        )
-        Rz = np.array(
-            [
-                [m.cos(gamma), -m.sin(gamma), 0],
-                [m.sin(gamma), m.cos(gamma), 0],
-                [0, 0, 1],
-            ]
-        )
-        R_cw = Rx @ Ry @ Rz
-        return R_cw
+        return mat_r
 
-    def manip_projection(self, corners, A):
-        N = len(corners)
-        corners = np.append(corners, np.ones((N, 1)), axis=1)
+    def _build_T_matrix(self):
+        mat_t = np.array(
+            [[self.extrinsics["X"]], [self.extrinsics["Y"]], [self.extrinsics["Z"]]]
+        )
+        return mat_t
+
+    def _run_projection(self, corners, matrix):
+        num_points = len(corners)
+        corners = np.append(corners, np.ones((num_points, 1)), axis=1)
         corners = np.transpose(corners, axes=(1, 0))
-        matrix = A @ corners
-        res = matrix[[0, 1], :] / matrix[[2], :]
+        projected = matrix @ corners
+        res = projected[[0, 1], :] / projected[[2], :]
         res = np.transpose(res, axes=(1, 0))
         return res
 
-    def project_points_w2i(self, corners_world):
+    def project_points_xy2uv(self, corners_world):
         """
         把世界中的点对应到图像上
-        Args:
-            input: a numpy array of shape N x 2
-            input: a numpy array of shape N x 2
         """
-        # TODO: try... exception: too large or too small 1920x1080
-        corners_image = self.manip_projection(corners_world, self.P).astype(float)
+        corners_image = self._run_projection(corners_world, self.trans_matrix_xy2uv)
         return corners_image
 
-    def project_points_i2w(self, corners_image):
+    def project_points_uv2xy(self, corners_image):
         """
         把图像上的点对应到世界中
         """
-        corners_world = self.manip_projection(corners_image, self.Q).astype(float)
+        corners_world = self._run_projection(corners_image, self.trans_matrix_uv2xy)
         return corners_world
 
     def project_points_v2x(self, array_v):  # TODO： debug this one
