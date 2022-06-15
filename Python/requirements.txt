@@ -1,0 +1,6 @@
+easydict
+fire
+numpy
+onnxruntime
+opencv-python
+PyYAML

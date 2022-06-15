@@ -1,0 +1,6 @@
+inputs:
+  video: E:\AdasPerception\resources\000018_20211228_000474.mp4
+  predict: E:\AdasPerception\resources\000018_20211228_000474.npz
+
+ego:
+  width: 1.8

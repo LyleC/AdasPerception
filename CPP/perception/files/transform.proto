@@ -1,0 +1,265 @@
+syntax = "proto3";
+
+package transform.proto;
+
+message Point {
+  double x = 1;
+  double y = 2;
+  double z = 3;
+}
+
+message Ped_Point {
+  double conf1 = 1;
+  int64 x1 = 2;
+  int64 y1 = 3;
+  double conf2 = 4;
+  int64 x2 = 5;
+  int64 y2 = 6;
+  double conf3 = 7;
+  int64 x3 = 8;
+  int64 y3 = 9;
+  double conf4 = 10;
+  int64 x4 = 11;
+  int64 y4 = 12;
+  double conf5 = 13;
+  int64 x5 = 14;
+  int64 y5 = 15;
+  double conf6 = 16;
+  int64 x6 = 17;
+  int64 y6 = 18;
+  double conf7 = 19;
+  int64 x7 = 20;
+  int64 y7 = 21;
+
+}
+
+message Point2i {
+  int64 x = 1;
+  int64 y = 2;
+}
+
+message Rect {
+  double x = 1;
+  double y = 2;
+  double width = 3;
+  double height = 4;
+}
+
+message Tire_Line_Rect {
+  int64 x1 = 1;
+  int64 y1 = 2;
+  int64 x2 = 3;
+  int64 y2 = 4;
+}
+
+message Size2f {
+  double width = 1;
+  double length = 2;
+}
+
+message Image {
+  bytes data = 1;
+  int64 timestamp = 2;
+}
+
+message Can {
+  int64 id = 1;
+  int64 dlc = 2;
+  bytes data = 3;
+  int64 timestamp = 4;
+  int32 channel = 5;
+}
+
+message CarCanInfo {
+  double speed = 1;
+  double yawrate = 2;
+  int32 brake = 3;
+}
+
+message CaliInfo {
+  double fx = 1;
+  double fy = 2;
+  double cx = 3;
+  double cy = 4;
+  double pitch = 5;
+  double yaw = 6;
+  double roll = 7;
+  double H = 8;
+  double X = 9;
+  double Y = 10;
+}
+
+enum Region {
+  FULL = 0;
+  INTERESTING = 1;
+}
+
+enum Source {
+  ORIGIN = 0;
+  PROC = 1;
+}
+
+
+message Object {
+  int64 camera_type = 1;
+  int64 id = 2;
+  int64 class_ = 3;
+  string class_name = 4;
+  int64 subclass = 5;
+  string subclass_name = 6;
+  double confidence = 7;
+  Rect bbox = 8;
+  //detail
+  int64 detail_class = 9;
+  double detail_conf = 10;
+  Rect detail_bbox = 11;
+  int64 viewpoint = 12;  
+  int64 side_ratio = 13;
+  Tire_Line_Rect tire_line = 14;
+
+  int64 life_time = 15;
+  int64 timestamp = 16;
+  //
+  double height = 17;
+  double width = 18;
+  double length = 19;
+  //
+  Point distance = 20;
+  Point relative_velocity = 21;
+  Point relative_acceleration = 22;
+  //
+  double ttc = 23;
+  double thw = 24;
+  //
+  double angle_left = 25;
+  double angle_right = 26;
+  double yaw_angle = 27;
+
+  enum MotionStatus {
+    MOTION_STATUS_UNKNOWN = 0;
+    MOTION_STATUS_PARKED = 1;
+    MOTION_STATUS_STOPPED = 2;
+    MOTION_STATUS_MOVING = 3;
+    MOTION_STATUS_ONCOMING = 4;
+    MOTION_STATUS_CROSSING = 5;
+  }
+  MotionStatus motion_status = 28;
+  int64 cipv = 29;
+
+}
+
+message Ped {
+  int64 id = 2;
+  int64 class_ = 3;
+  double confidence = 7;
+  Rect bbox = 8;
+  //detail
+  double conf2 = 9;
+  Ped_Point ppoint = 10;
+  //
+  Point distance = 11;
+  Point relative_velocity = 12;
+  Point relative_acceleration = 13;
+  int64 cipp = 14;
+}
+
+message LaneOrigin {
+  double conf = 1;
+  double x = 2;
+  double y = 3;
+  double z = 4;
+  int32 tps = 5;  
+  double k = 6;
+  double f1 = 7;
+  double f2 = 8;
+  repeated double ex_data = 10;
+}
+
+message Lane {
+  enum CoordinateType {
+    COORDINATE_TYPE_IMAGE = 0;
+    COORDINATE_TYPE_WORLD = 1;
+  }
+  CoordinateType coordinate_type = 1;
+  double C0 = 2;
+  double C1 = 3;
+  double C2 = 4;
+  double C3 = 5;
+  int64 index = 6;
+  int64 quality = 7;
+
+  enum LineType {
+    LINE_TYPE_UNDECIDED = 0;
+    LINE_TYPE_SOLID = 1;
+    LINE_TYPE_DASHED = 2;
+    LINE_TYPE_VIRTUAL = 3;
+    LINE_TYPE_ROAD_EDGE = 4;
+    LINE_TYPE_BOTTS_DOTS = 5;
+  }
+  LineType line_type = 8;
+
+  enum LineColor {
+    LINE_COLOR_UNKNOWN = 0;
+    LINE_COLOR_WHITE = 1;
+    LINE_COLOR_YELLOW = 2;
+    LINE_COLOR_BLUE_GREEN = 3;
+    LINE_COLOR_ORANGE_RED = 4;
+  }
+  LineColor line_color = 9;
+
+  Point start = 10;
+  Point end = 11;
+  double distance_to_host = 12;
+  repeated Point image_points = 13;
+  repeated LaneOrigin lane_origin = 14;
+  // repeated LaneOrigin lane_origin_s = 15;
+  double width = 16;
+  int64 line_id = 17;
+
+  int64 camera_index = 18;
+  CaliInfo cali_info = 19;
+}
+//
+
+message Header {
+  string serial_number = 1;
+  string protocol_version = 2;
+  string hard_version = 3;
+  string soft_version = 4;
+  int64 image_format = 5;
+  string car_type = 6;
+  bytes tsintel_config = 7;
+  string run_mode = 8;
+  string object_version = 9;
+}
+
+message Frame {
+  Header header = 1;
+  int64 id = 2;
+
+  repeated Can raw_can = 3;
+
+  repeated Object object = 4;
+  repeated Ped ped = 5;
+  repeated Lane lane = 6;
+
+  int64 cipv_id = 7;
+  int64 ldw_status = 8;
+  int64 fcw_status = 9;
+  int64 pcw_status = 10;
+  int64 asw_status = 11;
+  int64 bsd_status = 12;
+  //
+  int64 lane_number = 13;
+  double ttlc = 14;
+  int64 timestamp = 15;
+  Image raw_image = 16;
+  CarCanInfo car_info = 17;
+  Rect lane_crop = 18;
+  Rect object_crop = 19;
+  int64 shutter = 20;
+  Region region = 21;
+  Source source = 22;
+}
+
+message MultiFrame { repeated Frame frame = 1; }
