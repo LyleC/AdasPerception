@@ -10,14 +10,15 @@ class Camera:
         self.extrinsics = extrinsics
         self.image_size = image_size
 
-        self.mat_K = self._build_intrinsic_matrix()
-        self.mat_RT = self._build_extrinsic_matrix()
+        mat_K = self._build_intrinsic_matrix()
+        mat_RT = self._build_extrinsic_matrix()
         self.trans_mat_uv2xy, self.trans_mat_xy2uv = self._calc_trans_matrix(
-            self.mat_K, self.mat_RT
+            mat_K, mat_RT
         )
-        return
 
     def _calc_trans_matrix(self, mat_k, mat_rt):
+        print(mat_k)
+        print(mat_rt)
         mat_krt = mat_k @ mat_rt
         mat_krt = np.delete(mat_krt, 2, axis=1)
         mat_inv = np.linalg.inv(mat_krt)
@@ -26,50 +27,57 @@ class Camera:
         return trans_matrix_uv2xy, trans_matrix_xy2uv
 
     def _build_intrinsic_matrix(self):
-        mat_K = np.array(
+        return np.array(
             [
                 [self.intrinsics["cx"], -self.intrinsics["fx"], 0],
                 [self.intrinsics["cy"], 0, -self.intrinsics["fy"]],
                 [1, 0, 0],
             ]
         )
-        return mat_K
 
     def _build_extrinsic_matrix(self):
-        mat_T = self._build_T_matrix()
-        mat_R = self._build_R_matrix()
-        return np.hstack((mat_R, mat_T))
-
-    def _build_T_matrix(self):
-        return np.array(
-            [[self.extrinsics["X"]], [self.extrinsics["Y"]], [self.extrinsics["Z"]]]
-        )
+        mat_r = self._build_R_matrix()
+        mat_t = self._build_T_matrix()
+        mat_rt = np.hstack((mat_r, mat_t))
+        return mat_rt
 
     def _build_R_matrix(self):
-        mat_R, _ = cv2.Rodrigues(
+        mat_r, _ = cv2.Rodrigues(
             (
                 m.radians(self.extrinsics["roll"]),
                 m.radians(self.extrinsics["pitch"]),
                 m.radians(self.extrinsics["yaw"]),
             )
         )
-        return mat_R
+        return mat_r
 
-    def manip_projection(self, corners, matrix):
-        num_frames = len(corners)
-        corners = np.append(corners, np.ones((num_frames, 1)), axis=1)
+    def _build_T_matrix(self):
+        mat_t = np.array(
+            [[self.extrinsics["X"]], [self.extrinsics["Y"]], [self.extrinsics["Z"]]]
+        )
+        return mat_t
+
+    def _run_projection(self, corners, matrix):
+        num_points = len(corners)
+        corners = np.append(corners, np.ones((num_points, 1)), axis=1)
         corners = np.transpose(corners, axes=(1, 0))
-        res = matrix @ corners
-        res = -res[[0, 1], :] / res[[2], :]
+        projected = matrix @ corners
+        res = projected[[0, 1], :] / projected[[2], :]
         res = np.transpose(res, axes=(1, 0))
         return res
 
-    def project_points_w2i(self, corners_world):
-        corners_image = self.manip_projection(corners_world, self.trans_mat_xy2uv)
+    def project_points_xy2uv(self, corners_world):
+        """
+        把世界中的点对应到图像上
+        """
+        corners_image = self._run_projection(corners_world, self.trans_mat_xy2uv)
         return corners_image
 
-    def project_points_i2w(self, corners_image):
-        corners_world = self.manip_projection(corners_image, self.trans_mat_uv2xy)
+    def project_points_uv2xy(self, corners_image):
+        """
+        把图像上的点对应到世界中
+        """
+        corners_world = self._run_projection(corners_image, self.trans_mat_uv2xy)
         return corners_world
 
     def project_points_v2x(self, array_v):  # TODO： debug this one
